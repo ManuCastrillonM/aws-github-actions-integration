@@ -5,6 +5,12 @@ on:
   push:
     branches:
       - main # Triggers only when pushing to the main branch
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'Reason'
+        required: false
+        default: '[bot] Trigger deployment pipeline'
 
 jobs:
   deploy:
