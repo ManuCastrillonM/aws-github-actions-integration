@@ -1,0 +1,54 @@
+name: Deploy to AWS S3
+
+# Defines when this workflow will run
+on:
+  push:
+    branches:
+      - main # Triggers only when pushing to the main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest # Uses Ubuntu as the runner operating system
+
+    steps:
+      # Step 1: Get the latest code
+      - name: Checkout code
+        uses: actions/checkout@v4 # Fetches the repository code
+
+      # Step 2: Set up Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4 # Installs Node.js and npm
+        with:
+          node-version: "18" # Uses Node.js version 18
+          cache: "npm" # Enables caching of npm dependencies for faster installations
+
+      # Step 3: Install project dependencies
+      - name: Install dependencies
+        run: npm ci # Clean install of dependencies, more reliable than npm install
+
+      # Step 4: Build the React application
+      - name: Build project
+        run: npm run build # Creates optimized production build
+
+      # Step 5: Set up AWS credentials for deployment
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4 # Official AWS credentials action
+        with:
+          aws-region: ${{ secrets.AWS_REGION }} # AWS region where the S3 bucket is located
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }} # AWS access key from GitHub secrets
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }} # AWS secret key from GitHub secrets
+
+      # Step 6: Upload build files to S3 and delete old files
+      - name: Deploy to S3
+        run: |
+          aws s3 sync build/ s3://manuelac-bad-jokes-generator --delete
+
+      # Step 7: Clear CloudFront cache to force new files to be fetched
+      - name: Invalidate CloudFront cache
+        if: env.CF_DIST_ID != ''
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CF_DIST_ID }} \
+            --paths "/*"
+        env:
+          CF_DIST_ID: ${{ secrets.CF_DIST_ID }}
